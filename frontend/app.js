@@ -12,15 +12,23 @@ const closeBtn = document.querySelector('.close-btn');
 const productForm = document.getElementById('product-form');
 const modalTitle = document.getElementById('modal-title');
 
-const btnLogin = document.getElementById('btn-login')
-const btnLogout = document.getElementById('btn-logout')
-const modalLogin = document.getElementById('modal-login')
-const closeLoginBtn = document.getElementById('close-login-btn')
-const loginForm = document.getElementById('registrar-form')
+// Elementos de Login
+const btnLogin = document.getElementById('btn-login');
+const btnLogout = document.getElementById('btn-logout');
+const modalLogin = document.getElementById('modal-login');
+const closeLoginBtn = document.getElementById('close-login-btn');
+const loginForm = document.getElementById('login-form');
 
+// Elementos de Registro
+const btnRegistrar = document.getElementById('btn-registrar');
+const modalRegistrar = document.getElementById('modal-registrar');
+const closeRegistrarBtn = document.getElementById('close-registrar-btn');
+const registrarForm = document.getElementById('registrar-form');
 
+// Variáveis de estado global (Token JWT e Papel)
 let tokenJWT = localStorage.getItem('token') || null;
 let usuarioPapel = localStorage.getItem('papel') || null;
+
 // ----------------------------------------------------
 // 2. INICIALIZAÇÃO E EVENTOS
 // ----------------------------------------------------
@@ -45,6 +53,9 @@ productForm.addEventListener('submit', async (e) => {
     await salvarProduto(); // Envia via Ajax (Fetch API) para o Backend
 });
 
+// ----------------------------------------------------
+// EVENTOS DE LOGIN
+// ----------------------------------------------------
 btnLogin.addEventListener('click', () => modalLogin.classList.remove('hidden'));
 closeLoginBtn.addEventListener('click', () => modalLogin.classList.add('hidden'));
 btnLogout.addEventListener('click', () => fazerLogout());
@@ -62,19 +73,9 @@ registrarForm.addEventListener('submit', async (e) => {
     await fazerRegistro();
 });
 
-function verificarLogin() {
-    if (tokenJWT && usuarioPapel === 'admin') {
-        btnNovoProduto.classList.remove('hidden');
-        btnLogout.classList.remove('hidden');
-        btnLogin.classList.add('hidden');
-        btnRegistrar.classList.add('hidden');
-    } else {
-        btnNovoProduto.classList.add('hidden');
-        btnLogout.classList.add('hidden');
-        btnLogin.classList.remove('hidden');
-        btnRegistrar.classList.remove('hidden');
-    }
-}
+// ----------------------------------------------------
+// 2.5 FUNÇÕES DE AUTENTICAÇÃO
+// ----------------------------------------------------
 function verificarLogin() {
     if (tokenJWT && usuarioPapel === 'admin') {
         btnNovoProduto.classList.remove('hidden');
@@ -157,6 +158,7 @@ async function fazerRegistro() {
         alert("Falha na comunicação com o servidor.");
     }
 }
+
 // ----------------------------------------------------
 // 3. FUNÇÃO: LISTAR PRODUTOS (GET)
 // ----------------------------------------------------
@@ -204,22 +206,18 @@ function renderizarProdutos(produtos) {
         // Formata o Preço (número) para o padrão R$ 00,00 da moeda brasileira
         const precoFormatado = Number(produto.preco).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-        // Montamos o design do card mesclando texto estático HTML com as variáveis do JS
-        card.innerHTML = `
-            <div class="card-img-container">
-                ${imgHtml}
-            </div>
-            <div class="card-content">
-                <h3 class="card-title">${produto.nome}</h3>
-                <p class="card-desc">${produto.descricao}</p>
-                <div class="card-price">${precoFormatado}</div>
+        // Só renderiza botões de edição se for admin logado
+        let actionsHtml = '';
+        if (tokenJWT && usuarioPapel === 'admin') {
+            actionsHtml = `
                 <div class="card-actions">
-                    <!-- Os botões injetam direto a função JS passando o id de argumento para o clique -->
                     <button class="btn edit" onclick="editarProduto(${produto.id})">Editar</button>
                     <button class="btn danger" onclick="excluirProduto(${produto.id})">Excluir</button>
                 </div>
-            </div>
-        `;
+            `;
+        }
+
+        // Montamos o design do card mesclando texto estático HTML com as variáveis do JS
         card.innerHTML = `
             <div class="card-img-container">
                 ${imgHtml}
@@ -304,6 +302,9 @@ async function salvarProduto() {
     try {
         const response = await fetch(url, {
             method: method,
+            headers: {
+                'Authorization': `Bearer ${tokenJWT}`
+            },
             body: formData // Não precisa de "Content-Type", o fetch bota automático pelo FormData para multipart.
         });
 
@@ -346,7 +347,10 @@ window.excluirProduto = async function(id) {
     if (confirm("Tem certeza que deseja excluir este produto?")) {
         try {
             const response = await fetch(`${API_URL}/produtos/${id}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${tokenJWT}`
+                }
             });
             if (response.ok) {
                 carregarProdutos(); // Se der sucesso, recarrega a grid limpando a foto e os dados mortos
