@@ -12,11 +12,23 @@ const closeBtn = document.querySelector('.close-btn');
 const productForm = document.getElementById('product-form');
 const modalTitle = document.getElementById('modal-title');
 
+const btnLogin = document.getElementById('btn-login')
+const btnLogout = document.getElementById('btn-logout')
+const modalLogin = document.getElementById('modal-login')
+const closeLoginBtn = document.getElementById('close-login-btn')
+const loginForm = document.getElementById('registrar-form')
+
+
+let tokenJWT = localStorage.getItem('token') || null;
+let usuarioPapel = localStorage.getItem('papel') || null;
 // ----------------------------------------------------
 // 2. INICIALIZAÇÃO E EVENTOS
 // ----------------------------------------------------
 // Assim que a tela termina de ser montada no navegador, chamamos a função para trazer do BD os produtos.
-document.addEventListener('DOMContentLoaded', carregarProdutos);
+document.addEventListener('DOMContentLoaded', () => {
+    verificarLogin();
+    carregarProdutos();
+});
 
 // Ao clicar no botão 'Novo Produto', chama a função de Abrir o formulário Modal
 btnNovoProduto.addEventListener('click', () => abrirModal());
@@ -33,6 +45,118 @@ productForm.addEventListener('submit', async (e) => {
     await salvarProduto(); // Envia via Ajax (Fetch API) para o Backend
 });
 
+btnLogin.addEventListener('click', () => modalLogin.classList.remove('hidden'));
+closeLoginBtn.addEventListener('click', () => modalLogin.classList.add('hidden'));
+btnLogout.addEventListener('click', () => fazerLogout());
+
+btnRegistrar.addEventListener('click', () => modalRegistrar.classList.remove('hidden'));
+closeRegistrarBtn.addEventListener('click', () => modalRegistrar.classList.add('hidden'));
+
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await fazerLogin();
+});
+
+registrarForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await fazerRegistro();
+});
+
+function verificarLogin() {
+    if (tokenJWT && usuarioPapel === 'admin') {
+        btnNovoProduto.classList.remove('hidden');
+        btnLogout.classList.remove('hidden');
+        btnLogin.classList.add('hidden');
+        btnRegistrar.classList.add('hidden');
+    } else {
+        btnNovoProduto.classList.add('hidden');
+        btnLogout.classList.add('hidden');
+        btnLogin.classList.remove('hidden');
+        btnRegistrar.classList.remove('hidden');
+    }
+}
+function verificarLogin() {
+    if (tokenJWT && usuarioPapel === 'admin') {
+        btnNovoProduto.classList.remove('hidden');
+        btnLogout.classList.remove('hidden');
+        btnLogin.classList.add('hidden');
+        btnRegistrar.classList.add('hidden');
+    } else {
+        btnNovoProduto.classList.add('hidden');
+        btnLogout.classList.add('hidden');
+        btnLogin.classList.remove('hidden');
+        btnRegistrar.classList.remove('hidden');
+    }
+}
+
+async function fazerLogin() {
+    const email = document.getElementById('login-email').value;
+    const senha = document.getElementById('login-senha').value;
+    
+    try {
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, senha })
+        });
+        
+        const data = await response.json();
+        
+        if (data.sucesso) {
+            tokenJWT = data.token;
+            usuarioPapel = data.usuario.papel;
+            localStorage.setItem('token', tokenJWT);
+            localStorage.setItem('papel', usuarioPapel);
+            
+            modalLogin.classList.add('hidden');
+            loginForm.reset();
+            verificarLogin();
+            carregarProdutos(); // recarrega para mostrar os botões de edição
+        } else {
+            alert("Erro de Login: " + (data.mensagem || "Credenciais inválidas"));
+        }
+    } catch (err) {
+        alert("Falha na comunicação com o servidor.");
+    }
+}
+
+function fazerLogout() {
+    tokenJWT = null;
+    usuarioPapel = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('papel');
+    verificarLogin();
+    carregarProdutos(); // recarrega para esconder os botões de edição
+}
+
+async function fazerRegistro() {
+    const nome = document.getElementById('reg-nome').value;
+    const email = document.getElementById('reg-email').value;
+    const senha = document.getElementById('reg-senha').value;
+    const papel = document.getElementById('reg-papel').value;
+    
+    try {
+        const response = await fetch(`${API_URL}/auth/registrar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, email, senha, papel })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok || data.sucesso) {
+            alert("Conta criada com sucesso! Você já pode fazer login.");
+            modalRegistrar.classList.add('hidden');
+            registrarForm.reset();
+            // Opcional: já abrir o modal de login automaticamente
+            modalLogin.classList.remove('hidden');
+        } else {
+            alert("Erro ao registrar: " + (data.mensagem || data.erro || "Falha no cadastro"));
+        }
+    } catch (err) {
+        alert("Falha na comunicação com o servidor.");
+    }
+}
 // ----------------------------------------------------
 // 3. FUNÇÃO: LISTAR PRODUTOS (GET)
 // ----------------------------------------------------
@@ -94,6 +218,17 @@ function renderizarProdutos(produtos) {
                     <button class="btn edit" onclick="editarProduto(${produto.id})">Editar</button>
                     <button class="btn danger" onclick="excluirProduto(${produto.id})">Excluir</button>
                 </div>
+            </div>
+        `;
+        card.innerHTML = `
+            <div class="card-img-container">
+                ${imgHtml}
+            </div>
+            <div class="card-content">
+                <h3 class="card-title">${produto.nome}</h3>
+                <p class="card-desc">${produto.descricao}</p>
+                <div class="card-price">${precoFormatado}</div>
+                ${actionsHtml}
             </div>
         `;
         productsGrid.appendChild(card); // Insere a caixinha HTML criada no final da tela
